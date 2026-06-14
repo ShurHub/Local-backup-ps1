@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash Calc</title>
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --surface: #2a2a2a;
+            --text: #e0e0e0;
+            --input-bg: #d3d3d3;
+            --input-text: #1e1e1e;
+            --border: #555;
+            --accent-green: #4caf50;
+            --label-width: 120px;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #121212;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .window {
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 620px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            overflow: hidden;
+        }
+
+        .window-header {
+            background-color: #252525;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #aaa;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .window-header .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #555;
+        }
+
+        .window-content {
+            padding: 20px 24px 24px;
+        }
+
+        .input-area {
+            margin-bottom: 24px;
+        }
+
+        .input-area label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #aaa;
+            margin-bottom: 6px;
+        }
+
+        #data-input {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 16px;
+            font-family: var(--font-mono);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+            transition: border 0.2s;
+            resize: none;
+            line-height: 1.4;
+            height: 80px;
+        }
+
+        #data-input:focus {
+            border-color: #888;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+        }
+
+        .hash-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .hash-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hash-label {
+            width: var(--label-width);
+            min-width: var(--label-width);
+            font-size: 13px;
+            font-weight: 500;
+            color: #bbb;
+            text-align: right;
+            user-select: none;
+        }
+
+        .hash-output {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 15px;
+            font-family: var(--font-mono);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+            transition: border 0.2s;
+            cursor: text;
+        }
+
+        .hash-output:focus {
+            border-color: #888;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+        }
+
+        .verify-area {
+            border-top: 1px solid var(--border);
+            padding-top: 18px;
+            margin-top: 10px;
+        }
+
+        .verify-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .verify-label {
+            width: var(--label-width);
+            min-width: var(--label-width);
+            font-size: 13px;
+            font-weight: 500;
+            color: #bbb;
+            text-align: right;
+            user-select: none;
+        }
+
+        #verify-input {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 15px;
+            font-family: var(--font-mono);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+            transition: border 0.2s, background-color 0.3s;
+        }
+
+        #verify-input:focus {
+            border-color: #888;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+        }
+
+        /* Green highlight for verify match */
+        #verify-input.match {
+            background-color: #c8e6c9;
+            border-color: var(--accent-green);
+            color: #1e1e1e;
+        }
+
+        /* Green highlight for the matching hash output field */
+        .hash-output.match {
+            background-color: #c8e6c9;
+            border-color: var(--accent-green);
+            color: #1e1e1e;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="window-header">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span style="margin-left: 8px;">Hash Calc</span>
+        </div>
+        <div class="window-content">
+            <div class="input-area">
+                <label for="data-input">Input string (max 256 chars)</label>
+                <textarea id="data-input"
+                          maxlength="256"
+                          placeholder="Type or paste text..."
+                          autocomplete="off"
+                          autocorrect="off"
+                          autocapitalize="off"
+                          spellcheck="false"></textarea>
+            </div>
+
+            <div class="hash-list">
+                <div class="hash-row">
+                    <span class="hash-label">CRC32</span>
+                    <input type="text" class="hash-output" id="out-crc32" readonly
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="hash-row">
+                    <span class="hash-label">MD5</span>
+                    <input type="text" class="hash-output" id="out-md5" readonly
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="hash-row">
+                    <span class="hash-label">SHA-1</span>
+                    <input type="text" class="hash-output" id="out-sha1" readonly
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="hash-row">
+                    <span class="hash-label">SHA-256</span>
+                    <input type="text" class="hash-output" id="out-sha256" readonly
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="hash-row">
+                    <span class="hash-label">SHA-384</span>
+                    <input type="text" class="hash-output" id="out-sha384" readonly
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="hash-row">
+                    <span class="hash-label">SHA-512</span>
+                    <input type="text" class="hash-output" id="out-sha512" readonly
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+            </div>
+
+            <div class="verify-area">
+                <div class="verify-row">
+                    <span class="verify-label">Verify</span>
+                    <input type="text" id="verify-input" placeholder="Paste hash to compare..."
+                           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ UI helpers (select all text on focus/click) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            function selectOnFocus(element) {
+                element.addEventListener('focus', () => element.select());
+                element.addEventListener('click', () => element.select());
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const dataInput = document.getElementById('data-input');
+                if (dataInput) {
+                    selectOnFocus(dataInput);
+                    dataInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                        }
+                    });
+                    // On drop, prevent full selection and place cursor at start
+                    dataInput.addEventListener('drop', () => {
+                        setTimeout(() => {
+                            dataInput.setSelectionRange(0, 0);
+                        }, 0);
+                    });
+                }
+                document.querySelectorAll('.hash-output').forEach(selectOnFocus);
+                const verifyInput = document.getElementById('verify-input');
+                if (verifyInput) selectOnFocus(verifyInput);
+            });
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ Utility: UTFвЂ‘8 bytes from string в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            const encoder = new TextEncoder();
+            function toBytes(str) {
+                return encoder.encode(str);
+            }
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ Precomputed hex table (lowercase) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            const HEX_TABLE = new Array(256);
+            for (let i = 0; i < 256; i++) {
+                HEX_TABLE[i] = i.toString(16).padStart(2, '0');
+            }
+
+            function bytesToHex(bytes) {
+                let out = '';
+                for (let i = 0; i < bytes.length; i++) {
+                    out += HEX_TABLE[bytes[i]];
+                }
+                return out;
+            }
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ CRC32 (standard ISO HDLC / zlib) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            const CRC32 = (() => {
+                const table = new Int32Array(256);
+                for (let i = 0; i < 256; i++) {
+                    let c = i;
+                    for (let j = 0; j < 8; j++) {
+                        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                    }
+                    table[i] = c;
+                }
+                // Now accepts Uint8Array directly
+                return function crc32(bytes) {
+                    let crc = 0xFFFFFFFF;
+                    for (let i = 0; i < bytes.length; i++) {
+                        crc = (crc >>> 8) ^ table[(crc ^ bytes[i]) & 0xFF];
+                    }
+                    crc = (crc ^ 0xFFFFFFFF) >>> 0; // unsigned
+                    return crc.toString(16).padStart(8, '0');
+                };
+            })();
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ MD5 helper functions (no unused parameters) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            const F = (x, y, z) => (x & y) | (~x & z);
+            const G = (x, y, z) => (x & z) | (y & ~z);
+            const H = (x, y, z) => x ^ y ^ z;
+            const I = (x, y, z) => y ^ (x | ~z);
+            const rotl = (x, n) => (x << n) | (x >>> (32 - n));
+
+            function ff(a, b, c, d, M, k, t) {
+                return (a + F(b, c, d) + M[k] + t) | 0;
+            }
+            function gg(a, b, c, d, M, k, t) {
+                return (a + G(b, c, d) + M[k] + t) | 0;
+            }
+            function hh(a, b, c, d, M, k, t) {
+                return (a + H(b, c, d) + M[k] + t) | 0;
+            }
+            function ii(a, b, c, d, M, k, t) {
+                return (a + I(b, c, d) + M[k] + t) | 0;
+            }
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ MD5 (RFC 1321), now accepts Uint8Array в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            function md5(bytes) {
+                const len = bytes.length;
+                const msgLen = len * 8;
+                // Append padding
+                const paddedLen = (((len + 8) >>> 6) + 1) * 64; // multiple of 64 bytes
+                const padded = new Uint8Array(paddedLen);
+                padded.set(bytes);
+                padded[len] = 0x80;
+                // Write original bit length in littleвЂ‘endian at the end
+                const dv = new DataView(padded.buffer);
+                dv.setUint32(paddedLen - 8, msgLen, true); // low 32 bits
+                dv.setUint32(paddedLen - 4, Math.floor(msgLen / 0x100000000), true); // high 32 bits
+
+                // Initialize MD5 state
+                let a0 = 0x67452301;
+                let b0 = 0xefcdab89;
+                let c0 = 0x98badcfe;
+                let d0 = 0x10325476;
+
+                // Process each 64вЂ‘byte block
+                for (let offset = 0; offset < paddedLen; offset += 64) {
+                    const M = new Int32Array(16);
+                    for (let i = 0; i < 16; i++) {
+                        M[i] = dv.getInt32(offset + i * 4, true);
+                    }
+                    let A = a0, B = b0, C = c0, D = d0;
+
+                    // Round 1
+                    let q = ff(A,B,C,D, M, 0, 0xd76aa478); A = rotl(q,7)+B|0; D = rotl(ff(D,A,B,C, M, 1, 0xe8c7b756),12)+A|0; C = rotl(ff(C,D,A,B, M, 2, 0x242070db),17)+D|0; B = rotl(ff(B,C,D,A, M, 3, 0xc1bdceee),22)+C|0;
+                    A = rotl(ff(A,B,C,D, M, 4, 0xf57c0faf),7)+B|0; D = rotl(ff(D,A,B,C, M, 5, 0x4787c62a),12)+A|0; C = rotl(ff(C,D,A,B, M, 6, 0xa8304613),17)+D|0; B = rotl(ff(B,C,D,A, M, 7, 0xfd469501),22)+C|0;
+                    A = rotl(ff(A,B,C,D, M, 8, 0x698098d8),7)+B|0; D = rotl(ff(D,A,B,C, M, 9, 0x8b44f7af),12)+A|0; C = rotl(ff(C,D,A,B, M, 10, 0xffff5bb1),17)+D|0; B = rotl(ff(B,C,D,A, M, 11, 0x895cd7be),22)+C|0;
+                    A = rotl(ff(A,B,C,D, M, 12, 0x6b901122),7)+B|0; D = rotl(ff(D,A,B,C, M, 13, 0xfd987193),12)+A|0; C = rotl(ff(C,D,A,B, M, 14, 0xa679438e),17)+D|0; B = rotl(ff(B,C,D,A, M, 15, 0x49b40821),22)+C|0;
+
+                    // Round 2
+                    q = gg(A,B,C,D, M, 1, 0xf61e2562); A = rotl(q,5)+B|0; D = rotl(gg(D,A,B,C, M, 6, 0xc040b340),9)+A|0; C = rotl(gg(C,D,A,B, M, 11, 0x265e5a51),14)+D|0; B = rotl(gg(B,C,D,A, M, 0, 0xe9b6c7aa),20)+C|0;
+                    A = rotl(gg(A,B,C,D, M, 5, 0xd62f105d),5)+B|0; D = rotl(gg(D,A,B,C, M, 10, 0x02441453),9)+A|0; C = rotl(gg(C,D,A,B, M, 15, 0xd8a1e681),14)+D|0; B = rotl(gg(B,C,D,A, M, 4, 0xe7d3fbc8),20)+C|0;
+                    A = rotl(gg(A,B,C,D, M, 9, 0x21e1cde6),5)+B|0; D = rotl(gg(D,A,B,C, M, 14, 0xc33707d6),9)+A|0; C = rotl(gg(C,D,A,B, M, 3, 0xf4d50d87),14)+D|0; B = rotl(gg(B,C,D,A, M, 8, 0x455a14ed),20)+C|0;
+                    A = rotl(gg(A,B,C,D, M, 13, 0xa9e3e905),5)+B|0; D = rotl(gg(D,A,B,C, M, 2, 0xfcefa3f8),9)+A|0; C = rotl(gg(C,D,A,B, M, 7, 0x676f02d9),14)+D|0; B = rotl(gg(B,C,D,A, M, 12, 0x8d2a4c8a),20)+C|0;
+
+                    // Round 3
+                    q = hh(A,B,C,D, M, 5, 0xfffa3942); A = rotl(q,4)+B|0; D = rotl(hh(D,A,B,C, M, 8, 0x8771f681),11)+A|0; C = rotl(hh(C,D,A,B, M, 11, 0x6d9d6122),16)+D|0; B = rotl(hh(B,C,D,A, M, 14, 0xfde5380c),23)+C|0;
+                    A = rotl(hh(A,B,C,D, M, 1, 0xa4beea44),4)+B|0; D = rotl(hh(D,A,B,C, M, 4, 0x4bdecfa9),11)+A|0; C = rotl(hh(C,D,A,B, M, 7, 0xf6bb4b60),16)+D|0; B = rotl(hh(B,C,D,A, M, 10, 0xbebfbc70),23)+C|0;
+                    A = rotl(hh(A,B,C,D, M, 13, 0x289b7ec6),4)+B|0; D = rotl(hh(D,A,B,C, M, 0, 0xeaa127fa),11)+A|0; C = rotl(hh(C,D,A,B, M, 3, 0xd4ef3085),16)+D|0; B = rotl(hh(B,C,D,A, M, 6, 0x04881d05),23)+C|0;
+                    A = rotl(hh(A,B,C,D, M, 9, 0xd9d4d039),4)+B|0; D = rotl(hh(D,A,B,C, M, 12, 0xe6db99e5),11)+A|0; C = rotl(hh(C,D,A,B, M, 15, 0x1fa27cf8),16)+D|0; B = rotl(hh(B,C,D,A, M, 2, 0xc4ac5665),23)+C|0;
+
+                    // Round 4
+                    q = ii(A,B,C,D, M, 0, 0xf4292244); A = rotl(q,6)+B|0; D = rotl(ii(D,A,B,C, M, 7, 0x432aff97),10)+A|0; C = rotl(ii(C,D,A,B, M, 14, 0xab9423a7),15)+D|0; B = rotl(ii(B,C,D,A, M, 5, 0xfc93a039),21)+C|0;
+                    A = rotl(ii(A,B,C,D, M, 12, 0x655b59c3),6)+B|0; D = rotl(ii(D,A,B,C, M, 3, 0x8f0ccc92),10)+A|0; C = rotl(ii(C,D,A,B, M, 10, 0xffeff47d),15)+D|0; B = rotl(ii(B,C,D,A, M, 1, 0x85845dd1),21)+C|0;
+                    A = rotl(ii(A,B,C,D, M, 8, 0x6fa87e4f),6)+B|0; D = rotl(ii(D,A,B,C, M, 15, 0xfe2ce6e0),10)+A|0; C = rotl(ii(C,D,A,B, M, 6, 0xa3014314),15)+D|0; B = rotl(ii(B,C,D,A, M, 13, 0x4e0811a1),21)+C|0;
+                    A = rotl(ii(A,B,C,D, M, 4, 0xf7537e82),6)+B|0; D = rotl(ii(D,A,B,C, M, 11, 0xbd3af235),10)+A|0; C = rotl(ii(C,D,A,B, M, 2, 0x2ad7d2bb),15)+D|0; B = rotl(ii(B,C,D,A, M, 9, 0xeb86d391),21)+C|0;
+
+                    a0 = (a0 + A) | 0;
+                    b0 = (b0 + B) | 0;
+                    c0 = (c0 + C) | 0;
+                    d0 = (d0 + D) | 0;
+                }
+
+                // Produce final hex string
+                const out = new Uint8Array(16);
+                const outView = new DataView(out.buffer);
+                outView.setInt32(0, a0, true);
+                outView.setInt32(4, b0, true);
+                outView.setInt32(8, c0, true);
+                outView.setInt32(12, d0, true);
+
+                const result = bytesToHex(out);
+                // Clear the local padded copy (original bytes will be cleared centrally)
+                padded.fill(0);
+                return result;
+            }
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ SHA helpers using Web Crypto, now accept Uint8Array в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            async function sha(algorithm, bytes) {
+                try {
+                    const hashBuffer = await crypto.subtle.digest(algorithm, bytes.buffer);
+                    const hex = bytesToHex(new Uint8Array(hashBuffer));
+                    return hex;
+                } catch (e) {
+                    return '';
+                }
+            }
+
+            const sha1   = (bytes) => sha('SHA-1', bytes);
+            const sha256 = (bytes) => sha('SHA-256', bytes);
+            const sha384 = (bytes) => sha('SHA-384', bytes);
+            const sha512 = (bytes) => sha('SHA-512', bytes);
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ DOM references в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            const inputEl   = document.getElementById('data-input');
+            const verifyEl  = document.getElementById('verify-input');
+            const outputs = {
+                crc32:      document.getElementById('out-crc32'),
+                md5:        document.getElementById('out-md5'),
+                sha1:       document.getElementById('out-sha1'),
+                sha256:     document.getElementById('out-sha256'),
+                sha384:     document.getElementById('out-sha384'),
+                sha512:     document.getElementById('out-sha512')
+            };
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ Race condition guard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            let generation = 0;
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ Verify highlight (also highlights matched output) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            function updateVerify() {
+                const val = verifyEl.value.trim().toLowerCase();
+                let matchedOutput = null;
+                if (val.length > 0) {
+                    for (const out of Object.values(outputs)) {
+                        if (out.value === val) {
+                            matchedOutput = out;
+                            break;
+                        }
+                    }
+                }
+                verifyEl.classList.toggle('match', matchedOutput !== null);
+                for (const out of Object.values(outputs)) {
+                    out.classList.toggle('match', out === matchedOutput);
+                }
+            }
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ Main update function в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            let updateTimer = 0;
+            function updateHashes() {
+                clearTimeout(updateTimer);
+                updateTimer = setTimeout(async () => {
+                    const currentGen = ++generation;
+                    const text = inputEl.value;
+                    if (text.length === 0) {
+                        for (const out of Object.values(outputs)) {
+                            out.value = '';
+                        }
+                        verifyEl.value = '';
+                        verifyEl.classList.remove('match');
+                        for (const out of Object.values(outputs)) {
+                            out.classList.remove('match');
+                        }
+                        return;
+                    }
+
+                    // Encode once, share across all functions
+                    const bytes = encoder.encode(text);
+
+                    // Synchronous hashes
+                    const crc = CRC32(bytes);
+                    const md5hash = md5(bytes);
+
+                    // Asynchronous SHA hashes (bytes.buffer is read by crypto.subtle)
+                    const [s1, s256, s384, s512] = await Promise.all([
+                        sha1(bytes),
+                        sha256(bytes),
+                        sha384(bytes),
+                        sha512(bytes)
+                    ]);
+
+                    // Ignore result if input has changed since we started
+                    if (currentGen !== generation) {
+                        bytes.fill(0); // clear stale data
+                        return;
+                    }
+
+                    // Write outputs
+                    outputs.crc32.value  = crc;
+                    outputs.md5.value    = md5hash;
+                    outputs.sha1.value   = s1;
+                    outputs.sha256.value = s256;
+                    outputs.sha384.value = s384;
+                    outputs.sha512.value = s512;
+
+                    // Centralized clearing of the single byte buffer
+                    bytes.fill(0);
+
+                    // Update verify status
+                    updateVerify();
+                }, 50);
+            }
+
+            // в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ Event listeners в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            inputEl.addEventListener('input', updateHashes);
+            verifyEl.addEventListener('input', updateVerify);
+
+            // Initial state (empty)
+            updateHashes();
+        })();
+    </script>
+</body>
+</html>
