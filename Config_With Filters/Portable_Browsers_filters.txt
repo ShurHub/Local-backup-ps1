@@ -1,0 +1,126 @@
+# ============================================================
+# Portable_Browsers specific filters (privacy cleanup)
+# Applied relative to the Portable_Browsers folder root.
+# ============================================================
+
+# ------------------------------------------------------------
+# Browser extension-specific exclusions
+# ------------------------------------------------------------
+- **/Local Extension Settings/nngceckbapebfimnlniiiahkandclblb/**
+
+# ------------------------------------------------------------
+# Browser history, sessions and personal activity
+# ------------------------------------------------------------
+
+# Browsing history
+- /**/History
+- /**/History-journal
+- /**/Visited Links
+
+# Search history, autofill, addresses, form data
+- /**/Web Data
+- /**/Web Data-journal
+
+# Saved passwords
+- /**/Login Data
+- /**/Login Data-journal
+
+# Media activity history
+- /**/Media History
+- /**/Media History-journal
+
+# Session restore
+- /**/Sessions/**
+- /**/Current Session
+- /**/Current Tabs
+- /**/Last Session
+- /**/Last Tabs
+
+# Recently closed tabs
+- /**/Tabs
+
+# Favicons (can reveal browsing history)
+- /**/Favicons
+- /**/Favicons-journal
+
+# Site engagement tracking
+- /**/Site Characteristics Database/**
+
+# Privacy Sandbox / telemetry
+- /**/Trust Tokens
+- /**/OriginTrials
+- /**/PrivacySandboxAttestations*
+
+# Site permissions and predictions
+- /**/Permission Predictions/**
+
+# Commerce / shopping heuristics
+- /**/CommerceHeuristics
+
+# ------------------------------------------------------------
+# Browser internal storage & telemetry
+# ------------------------------------------------------------
+
+- /**/ads_service/**
+- /**/*Crashpad*/**
+- /**/*Safe Browsing*/**
+- /**/*Service Worker*/**
+- /**/*thumbnails*/**
+- /**/logs/**
+- /**/*System Reporting*/**
+- /**/*blob_storage*/**
+- /**/*IndexedDB*/**
+- /**/*Local Storage*/**
+- /**/*Extension State*/**
+- /**/*VideoDecodeStats*/**
+- /**/*Platform Notifications*/**
+- /**/*shared_proto_db*/**
+
+# Chromium service data
+- /**/*Session Storage*/**
+- /**/*Network Action Predictor*/**
+- /**/*OptimizationHints*/**
+- /**/*JumpListIcons*/**
+- /**/*JumpListIconsOld*/**
+
+# ============================================================
+# Firefox / Gecko service data cleanup
+# ------------------------------------------------------------
+
+# Session restore
+- /**/*sessionstore-backups/**
+- /**/recovery.jsonlz4*
+- /**/previous.jsonlz4*
+- /**/sessionCheckpoints.json*
+
+# Web app storage (non-cache state)
+- /**/storage/default/**
+- /**/idb/**
+- /**/webappsstore.sqlite*
+
+# Telemetry / diagnostics
+- /**/datareporting/**
+- /**/healthreport/**
+- /**/shield-preference-experiments/**
+- /**/crashes/**
+
+# Site permissions / browser state
+- /**/permissions.sqlite*
+- /**/content-prefs.sqlite*
+- /**/handlers.json*
+
+# History / navigation state (optional aggressive)
+- /**/places.sqlite*
+- /**/favicons.sqlite*
+
+# ------------------------------------------------------------
+# Browsers full Cache cleanup
+# ------------------------------------------------------------
+
+# Excludes ANY directory containing the word "cache"
+- /**/*cache*/**
+- /**/temp/**
+- /**/tmp/**
+
+# Log files 
+- /**/*.log

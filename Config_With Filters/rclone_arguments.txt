@@ -1,0 +1,50 @@
+# --- Config isolation (REQUIRED) ---
+# Use special marker to skip reading any real rclone.conf from the system.
+# This ensures the local sync does not interfere with remote configurations.
+
+--config=/notfound
+
+# --- Logging ---
+--verbose
+--stats-log-level=NOTICE
+--log-file=%LOG_FILE%
+--log-format=date,time
+
+# --- Console output ---
+--progress
+--stats-one-line
+
+# Update statistics interval (seconds)
+--stats=5s
+
+# Delete files during the sync process (safer than --delete-after for large sets)
+--delete-during
+
+# Also delete files that match exclusion rules on the destination
+--delete-excluded
+
+# --- Performance tuning (NVMe / SSD typical values) ---
+# Number of file checkers running in parallel
+--checkers=4
+# Number of file transfers running in parallel
+--transfers=1
+# Disable multi-thread streams for local disks (avoids fragmentation)
+--multi-thread-streams=0
+
+# --- Reliability ---
+# Create destination directories even if they are empty on source
+--create-empty-src-dirs
+# Retry failed operations up to this many times
+--retries=1
+# Low-level retries for individual chunks
+--low-level-retries=10
+# Maximum time to wait for a single transfer
+--timeout=10m
+# Allow file modification time difference up to this duration
+--modify-window=1s
+# Do not update directory modification times (speeds up sync)
+--no-update-dir-modtime
+
+# --- Case sensitivity ---
+# Treat file names case-insensitively (important on Windows)
+--ignore-case

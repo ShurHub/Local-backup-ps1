@@ -1,0 +1,15 @@
+# ============================================================
+# VS Code directories preserve
+# ============================================================
+
+# Re-include the .vscode directory itself.
+# Required only when a global filter excludes the directory entry
+# (for example: "- .vscode/").
+
++ .vscode/
+
+# Re-include everything inside .vscode.
+# Required when a global filter excludes its contents
+# (for example: "- .vscode/**").
+
++ .vscode/**

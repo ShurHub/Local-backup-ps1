@@ -1,0 +1,45 @@
+# =============================================================================
+# RCLONE PATHS AND SYNC CONFIGURATION
+# =============================================================================
+# Lines starting with # or ; are ignored.
+# Key=value format; value can be on the same line or on following lines
+# until the next key or end of file.
+# =============================================================================
+
+
+# --- Path format ---
+# Trailing backslashes are safe  the script normalizes them automatically.
+# Use any: D:\FolderName, D:\FolderName\
+# For root use D: or D:\
+
+Source=
+D:
+
+Destination=
+F:
+
+# DryRun: On / Off  (default Off if missing)
+
+DryRun=
+Off
+
+# Mode: Include (sync only listed folders in "Include Folders=" list)
+#       Exclude (sync all except listed folders in "Exclude Folders=" list)
+# Include mode: empty list = nothing to sync (script stops)
+# Exclude mode: empty list = sync everything
+
+Mode=
+Include
+
+# Folders to include or exclude (one folder name per line).
+# Folder names are not case-sensitive.
+# Do not include drive letter or slashes.
+
+Include Folders=
+
+
+Exclude Folders=
+
+
+# Just for notes
+Unused Folders=
