@@ -7,9 +7,9 @@
 #
 # --- Backup config folder ---
 # A folder containing exactly three files:
-#   rclone_paths.txt      Ц SOURCE, DEST, DryRun, Mode, and folder list
-#   rclone_arguments.txt  Ц rclone command-line flags
-#   rclone_filters.txt    Ц file/directory exclusion rules (global)
+#   rclone_paths.txt       SOURCE, DEST, DryRun, Mode, and folder list
+#   rclone_arguments.txt   rclone command-line flags
+#   rclone_filters.txt     file/directory exclusion rules (global)
 # The folder can be located anywhere; its name becomes the job identifier
 # used in the log file name.
 #
@@ -45,19 +45,28 @@ if (-not (Test-Path $ConfigFolder -PathType Container)) {
 $ConfigFolder = (Resolve-Path $ConfigFolder).Path
 
 # -----------------------------------------------------------------------------
-# READ TASK CONFIGURATION FILES Ц mandatory checks
+# READ TASK CONFIGURATION FILES  mandatory checks
 # -----------------------------------------------------------------------------
 $pathsFile   = Join-Path $ConfigFolder "rclone_paths.txt"
 $argsFile    = Join-Path $ConfigFolder "rclone_arguments.txt"
 $filterFile  = Join-Path $ConfigFolder "rclone_filters.txt"
 
-# All three files must exist Ц hard stop otherwise
+# All three files must exist  hard stop otherwise
 foreach ($file in @($pathsFile, $argsFile, $filterFile)) {
     if (-not (Test-Path $file)) {
         Write-Host "ERROR: Required config file not found: $file" -ForegroundColor Red
         exit 1
     }
 }
+
+# Check rclone availability
+$RCLONE = "rclone"
+if (-not (Get-Command $RCLONE -ErrorAction SilentlyContinue)) {
+    Write-Host "ERROR: rclone not found in PATH" -ForegroundColor Red
+    exit 1
+}
+
+
 
 # -----------------------------------------------------------------------------
 # PARSE rclone_paths.txt (new key=value style)
@@ -70,48 +79,66 @@ $config = @{}
 $currentKey = $null
 
 foreach ($line in $rawLines) {
+
     if ($line -match '^([^=]+)=\s*(.*)$') {
+
         $key = $matches[1].Trim()
         $value = $matches[2].Trim()
 
-        # --- Modified key handling: separate Include/Exclude/Unused Folders ---
         if ($key -eq 'Include Folders' -or $key -eq 'Exclude Folders') {
-            # These keys store an array of folder names
+
             if ($value -ne '') {
                 $config[$key] = @($value)
-            } else {
+            }
+            else {
                 $config[$key] = @()
             }
+
             $currentKey = $key
         }
         elseif ($key -eq 'Unused Folders') {
-            # Ignore this section entirely Ц do not store anything
+
             $currentKey = 'Unused Folders'
         }
         else {
-            # All other keys (Source, Destination, DryRun, Mode, etc.)
+
             if ($value -ne '') {
                 $config[$key] = $value
-            } else {
-                $config[$key] = $null
-            }
-            $currentKey = $key
-        }
-    } else {
-        # Continuation of previous multi-line key
-        if ($currentKey) {
-            if ($currentKey -eq 'Include Folders' -or $currentKey -eq 'Exclude Folders') {
-                $config[$currentKey] += @($line)
-            }
-            elseif ($currentKey -eq 'Unused Folders') {
-                # Ignore continuation lines for Unused Folders
             }
             else {
-                if ($null -eq $config[$currentKey]) {
-                    $config[$currentKey] = $line
-                } else {
-                    $config[$currentKey] += "`n$line"
-                }
+                $config[$key] = $null
+            }
+
+            $currentKey = $key
+        }
+
+    }
+    else {
+
+        if (-not $currentKey) {
+            Write-Host "ERROR: Unexpected line in config: $line" -ForegroundColor Red
+            exit 1
+        }
+
+        if ($currentKey -eq 'Include Folders' -or $currentKey -eq 'Exclude Folders') {
+
+            $config[$currentKey] += @($line)
+        }
+        elseif ($currentKey -eq 'Unused Folders') {
+
+            # Ignore continuation lines
+        }
+        else {
+
+            if ($null -eq $config[$currentKey]) {
+
+                # First and only continuation line
+                $config[$currentKey] = $line
+            }
+            else {
+
+                Write-Host "ERROR: Key '$currentKey' may contain only one value line" -ForegroundColor Red
+                exit 1
             }
         }
     }
@@ -169,10 +196,9 @@ if (-not $ConfigFolders) {
 
 # Automatic log name: use the Config folder's leaf name
 $LOGNAME = Split-Path $ConfigFolder -Leaf
-
-$RCLONE = "rclone"
 $LOG_DIR = Join-Path $PSScriptRoot "logs"
 
+# Create log directory
 if (!(Test-Path $LOG_DIR)) {
     New-Item -ItemType Directory -Path $LOG_DIR -Force | Out-Null
 }
@@ -181,7 +207,7 @@ if (!(Test-Path $LOG_DIR)) {
 $LOG_FILE = Join-Path $LOG_DIR "rclone_mirr_$LOGNAME.log"
 
 # =============================================================================
-# SAFETY CHECKS
+# VALIDATE SOURCE / DEST SETTINGS
 # =============================================================================
 
 if ([string]::IsNullOrWhiteSpace($SOURCE) -or
@@ -191,13 +217,43 @@ if ([string]::IsNullOrWhiteSpace($SOURCE) -or
     exit 1
 }
 
-# Fix bare drive letters (e.g., "D:") Ц append backslash to make it a root
+
+# Fix bare drive letters (e.g., "D:")  append backslash to make it a root
 if ($SOURCE -match '^[A-Za-z]:$') { $SOURCE += '\' }
 if ($DEST -match '^[A-Za-z]:$')   { $DEST += '\' }
 
+
+
+# Checks for absolute path
+if ($SOURCE -notmatch '^[A-Za-z]:\\') {
+    Write-Host "ERROR: SOURCE must start with a drive letter" -ForegroundColor Red
+    exit 1
+}
+
+if ($DEST -notmatch '^[A-Za-z]:\\' ) {
+    Write-Host "ERROR: DESTINATION must start with a drive letter" -ForegroundColor Red
+    exit 1
+}
+
+
 # Normalize paths
-$srcFull  = [System.IO.Path]::GetFullPath($SOURCE)
-$destFull = [System.IO.Path]::GetFullPath($DEST)
+try {
+    $srcFull = [System.IO.Path]::GetFullPath($SOURCE)
+}
+catch {
+    Write-Host "ERROR: Invalid SOURCE path: $SOURCE" -ForegroundColor Red
+    exit 1
+}
+
+try {
+    $destFull = [System.IO.Path]::GetFullPath($DEST)
+}
+catch {
+    Write-Host "ERROR: Invalid DESTINATION path: $DEST" -ForegroundColor Red
+    exit 1
+}
+
+
 
 # Prevent identical paths
 if ($srcFull.TrimEnd('\') -ieq $destFull.TrimEnd('\')) {
@@ -205,52 +261,54 @@ if ($srcFull.TrimEnd('\') -ieq $destFull.TrimEnd('\')) {
     exit 1
 }
 
-# Source root drive warning check (kept as an informational message)
-if ($srcFull -match '^[A-Z]:\\?$') {
-    Write-Host "WARNING: Source path is the root of the drive!" -ForegroundColor Red
-    Write-Host "All folders from the source drive root will be synced." -ForegroundColor Yellow
-    Write-Host ""
-}
+# Prevent nested sync disaster
+$srcUri  = [System.Uri]($srcFull.TrimEnd('\') + '\')
+$destUri = [System.Uri]($destFull.TrimEnd('\') + '\')
 
-# Destination root warning (now in red)
-if ($destFull -match '^[A-Z]:\\?$') {
-    Write-Host "NOTE: Destination is a drive root. Folders will be created/synced inside it." -ForegroundColor Red
-    Write-Host ""
-}
-
-# Prevent nested sync disasters
-if ($destFull.StartsWith($srcFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+if ($srcUri.IsBaseOf($destUri)) {
     Write-Host "ERROR: DEST cannot be inside SOURCE" -ForegroundColor Red
     exit 1
 }
 
-if ($srcFull.StartsWith($destFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+if ($destUri.IsBaseOf($srcUri)) {
     Write-Host "ERROR: SOURCE cannot be inside DEST" -ForegroundColor Red
     exit 1
 }
 
-# Check SOURCE existence
 if (-not (Test-Path $srcFull)) {
-    Write-Host "ERROR: SOURCE does not exist" -ForegroundColor Red
+    Write-Host "ERROR: SOURCE does not exist: $srcFull" -ForegroundColor Red
     exit 1
 }
 
-# Create DEST if missing
-if (-not (Test-Path $destFull)) {
-    Write-Host "DEST does not exist. Creating..." -ForegroundColor Yellow
-    New-Item -ItemType Directory -Path $destFull -Force | Out-Null
+# Check DEST existence
+if (-not (Test-Path $destFull -PathType Container)) {
+
+    Write-Host ""
+    Write-Host "DEST does not exist:" -ForegroundColor Yellow
+    Write-Host "$destFull" -ForegroundColor White
+    Write-Host ""
+
+    $createDest = Read-Host "Create destination folder? Type Y to continue"
+
+    if ($createDest -ne "Y") {
+        Write-Host "Cancelled." -ForegroundColor Yellow
+        exit 1
+    }
+
+    try {
+        New-Item -ItemType Directory -Path $destFull -Force -ErrorAction Stop | Out-Null
+    }
+    catch {
+        Write-Host "ERROR: System failed to create destination folder" -ForegroundColor Red
+        exit 1
+    }
+
+    if (-not (Test-Path $destFull -PathType Container)) {
+        Write-Host "ERROR: Destination folder does not exist or was not created" -ForegroundColor Red
+        exit 1
+    }
 }
 
-# Check rclone availability
-if (-not (Get-Command $RCLONE -ErrorAction SilentlyContinue)) {
-    Write-Host "ERROR: rclone not found in PATH" -ForegroundColor Red
-    exit 1
-}
-
-# Create log directory
-if (-not (Test-Path $LOG_DIR)) {
-    New-Item -ItemType Directory -Path $LOG_DIR -Force | Out-Null
-}
 
 # =============================================================================
 # READ EXTERNAL ARGUMENTS AND FILTERS (with comment support)
@@ -261,12 +319,54 @@ $externalArgs = Get-Content -Path $argsFile |
     Where-Object { $_ -notmatch '^\s*$' -and $_ -notmatch '^\s*[#;]' } |
     ForEach-Object { $_.Trim() }
 
+# rclone_arguments.txt must contain at least one active argument
+if ($externalArgs.Count -eq 0) {
+    Write-Host "ERROR: rclone_arguments.txt is empty" -ForegroundColor Red
+    exit 1
+}
+
+# Basic typo detection: every argument must start with "-"
+foreach ($arg in $externalArgs) {
+    if ($arg -notmatch '^-') {
+        Write-Host "ERROR: Invalid argument in $argsFile" -ForegroundColor Red
+        Write-Host "Line: $arg" -ForegroundColor Yellow
+        Write-Host "Arguments must start with '-'" -ForegroundColor Red
+        exit 1
+    }
+}
+
+
+
 $filterLines = Get-Content -Path $filterFile |
     Where-Object { $_ -notmatch '^\s*$' -and $_ -notmatch '^\s*[#;]' } |
     ForEach-Object { $_.Trim() }
 
+
+
+# -----------------------------------------------------------------------------
+# VALIDATE FILTER RULES
+# Every active filter rule must start with:
+#   +  include rule
+#   -  exclude rule
+# Comment lines (# and ;) have already been removed above.
+# Any other starting character is treated as a configuration error.
+# -----------------------------------------------------------------------------
+
+foreach ($rule in $filterLines) {
+
+    if ($rule -notmatch '^[+-]') {
+        Write-Host "ERROR: Invalid filter rule in $filterFile" -ForegroundColor Red
+        Write-Host "Rule: $rule" -ForegroundColor Yellow
+        Write-Host "Filter rules must start with '+' or '-'" -ForegroundColor Red
+        exit 1
+    }
+}
+
+
+
+
 # =============================================================================
-# CONFIG INFO Ц Task identity, active filter rules, and rclone arguments
+# CONFIG INFO  Task identity, active filter rules, and rclone arguments
 # =============================================================================
 
 Write-Host ""
@@ -277,11 +377,8 @@ Write-Host "Configs folder : $ConfigFolder" -ForegroundColor White
 Write-Host "Log file       : $LOG_FILE" -ForegroundColor White
 Write-Host ""
 
-Write-Host "--- rclone_filters.txt (global filter rules) ---" -ForegroundColor Yellow
-$filterLines | ForEach-Object { Write-Host $_ }
-
 Write-Host ""
-Write-Host "--- RCLONE ARGUMENTS ---" -ForegroundColor Cyan
+Write-Host "--- RCLONE ARGUMENTS ---" -ForegroundColor Yellow
 Write-Host ""
 
 # Build an array of common arguments (for display purposes only; not used directly in sync)
@@ -302,6 +399,13 @@ if ($DryRun) {
 foreach ($arg in $commonArgs) {
     Write-Host $arg
 }
+
+Write-Host ""
+Write-Host ""
+Write-Host "--- GLOBAL FILTER RULES (rclone_filters.txt) ---" -ForegroundColor Yellow
+Write-Host ""
+$filterLines | ForEach-Object { Write-Host $_ }
+
 Write-Host ""
 Write-Host "========================================================" -ForegroundColor Gray
 Write-Host ""
@@ -330,7 +434,9 @@ if ($Mode -eq 'include') {
 } else {
     # Exclude mode
     if ($ConfigFolders.Count -eq 0) {
-        Write-Host "Sync mode: Mirror ALL folders from source!" -ForegroundColor Red
+        Write-Host "Sync mode: Exclude" 
+        Write-Host "WARNING: Exclude folders list is EMPTY" -ForegroundColor Red
+        Write-Host "All first-level folders from SOURCE will be mirrored." -ForegroundColor Yellow
         $FoldersToSync = $AllSourceFolders
     } else {
         # Exclude listed folders (remove from list, even if they don't exist)
@@ -374,20 +480,36 @@ foreach ($folder in $FoldersToSync) {
 }
 
 # =============================================================================
-# CONFIRMATION (updated to show per-folder filter status)
+# CONFIRMATION (show per-folder filter status)
 # =============================================================================
 
 Write-Host ""
-Write-Host "SOURCE : $srcFull"
-Write-Host "DEST   : $destFull"
+Write-Host "SOURCE      : $srcFull"
+Write-Host "DESTINATION : $destFull"
 Write-Host ""
 
-if ($DryRun) {
-    Write-Host "MODE   : DRY RUN" -ForegroundColor Yellow
-} else {
-    Write-Host "MODE   : FULL MIRROR" -ForegroundColor Cyan
+
+# Source root drive warning check (kept as an informational message)
+if ($srcFull -match '^[A-Z]:\\?$') {
+    Write-Host "NOTE: SOURCE is a drive root!" -ForegroundColor Red
+#    Write-Host "All folders from the source drive root will be synced." -ForegroundColor Yellow
+    Write-Host ""
 }
 
+# Destination root warning (now in red)
+if ($destFull -match '^[A-Z]:\\?$') {
+    Write-Host "NOTE: DESTINATION is a drive root!" -ForegroundColor Red 
+#    Write-Host "Folders will be created/synced inside it." -ForegroundColor Yellow
+    Write-Host ""
+}
+
+if ($DryRun) {
+    Write-Host "DRY RUN On" -ForegroundColor Yellow
+} else {
+    Write-Host "DRY RUN Off" -ForegroundColor Cyan
+}
+
+Write-Host ""
 Write-Host "Sync mode: $Mode" -ForegroundColor White
 Write-Host "Folders to sync ($($FoldersToSync.Count)):" -ForegroundColor White
 foreach ($f in $FoldersToSync) {
@@ -401,15 +523,16 @@ foreach ($f in $FoldersToSync) {
 }
 
 Write-Host ""
-Write-Host "Inside each folder, rclone sync will mirror contents." -ForegroundColor Yellow
-Write-Host "Files missing in source will be DELETED within those folders." -ForegroundColor Yellow
-Write-Host "Other folders on destination will remain untouched." -ForegroundColor Yellow
+Write-Host "Ready for Mirror backup." -ForegroundColor Green
+Write-Host "Inside each selected folder, rclone will mirror sync all content." -ForegroundColor Yellow
+Write-Host "Files missing in source will be DELETED within destination folders." -ForegroundColor Yellow
+#Write-Host "Other folders on destination will remain untouched." -ForegroundColor Yellow
 Write-Host ""
 
-# "Y" confirmation (case-insensitive)
+# "Y" confirmation (case sensitive)
 $confirm = Read-Host "Type Y to continue"
 
-if ($confirm -ne "y") {
+if ($confirm -ne "Y") {
     Write-Host "Cancelled." -ForegroundColor Yellow
     exit
 }
@@ -483,7 +606,7 @@ foreach ($folder in $FoldersToSync) {
 
         # Check for critical "no space" condition based on error text only
         $diskFull = $false
-        if ($errorOutput -match 'no space left on device|disk full|not enough space|insufficient disk space|недостаточно места|нет места на диске') {
+        if ($errorOutput -match 'no space left on device|disk full|not enough space|insufficient disk space') {
             $diskFull = $true
         }
 
@@ -496,7 +619,7 @@ foreach ($folder in $FoldersToSync) {
             break
         }
 
-        # Non-zero exit code without disk full Ц continue with next folder
+        # Non-zero exit code without disk full  continue with next folder
         if ($exitCode -ne 0) {
             Write-Host "WARNING: rclone returned exit code $exitCode for folder '$folder'" -ForegroundColor Red
             $overallExitCode = 1
@@ -517,12 +640,13 @@ foreach ($folder in $FoldersToSync) {
 # Clear any leftover progress bar artifacts
 Write-Host ""
 Write-Host ""
+Write-Host "========================================================" -ForegroundColor Gray
 
 if ($criticalStop) {
-    Write-Host "BACKUP STOPPED Ц insufficient disk space on destination (folder '$criticalFolder')." -ForegroundColor Red
+    Write-Host "BACKUP STOPPED  insufficient disk space on destination (folder '$criticalFolder')." -ForegroundColor Red
 }
 elseif ($overallExitCode -eq 0) {
-    Write-Host "SUCCESS" -ForegroundColor Green
+    Write-Host ">>> SUCCESS <<<" -ForegroundColor Green
 }
 else {
     Write-Host "FAILED (one or more folder syncs had errors)" -ForegroundColor Red
